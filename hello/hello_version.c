@@ -2,16 +2,17 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/utsname.h>
 
 static int __init hello_init(void)
 {
-	pr_alert("Good morrow to this fair assembly.\n");
+	pr_alert("Hello Master. You are currently using Linux %s.\n", init_uts_ns.name.release);
 	return 0;
 }
 
 static void __exit hello_exit(void)
 {
-	pr_alert("Alas, poor world, what treasure hast thou lost!\n");
+	pr_alert("Goodbye.\n");
 }
 
 module_init(hello_init);
