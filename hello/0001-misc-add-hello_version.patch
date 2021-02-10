@@ -1,0 +1,80 @@
+From f01dd457afb27df3d0b3370a9e6ff8faec83d977 Mon Sep 17 00:00:00 2001
+From: Darian Wang <darianjupiter@gmail.com>
+Date: Sun, 7 Feb 2021 01:23:28 -0800
+Subject: [PATCH] misc: add hello_version
+
+Add hello_version
+
+Signed-off-by: Darian Wang <darianjupiter@gmail.com>
+---
+ drivers/misc/Kconfig         |  5 +++++
+ drivers/misc/Makefile        |  1 +
+ drivers/misc/hello_version.c | 31 +++++++++++++++++++++++++++++++
+ 3 files changed, 37 insertions(+)
+ create mode 100644 drivers/misc/hello_version.c
+
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index ce136d685d14..2169b610c6dd 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -5,6 +5,11 @@
+ 
+ menu "Misc devices"
+ 
++config HELLO_VERSION
++    tristate "Hello version driver"
++    help
++        Driver displaying the version of the kernel.
++
+ config SENSORS_LIS3LV02D
+ 	tristate
+ 	depends on INPUT
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index c7bd01ac6291..d99b31528036 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -57,3 +57,4 @@ obj-$(CONFIG_PVPANIC)   	+= pvpanic.o
+ obj-$(CONFIG_HABANA_AI)		+= habanalabs/
+ obj-$(CONFIG_UACCE)		+= uacce/
+ obj-$(CONFIG_XILINX_SDFEC)	+= xilinx_sdfec.o
++obj-$(CONFIG_HELLO_VERSION)	+= hello_version.o
+diff --git a/drivers/misc/hello_version.c b/drivers/misc/hello_version.c
+new file mode 100644
+index 000000000000..2250f605448d
+--- /dev/null
++++ b/drivers/misc/hello_version.c
+@@ -0,0 +1,31 @@
++// SPDX-License-Identifier: GPL-2.0
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/utsname.h>
++#include <linux/time.h>
++
++static char *whom = "world";
++module_param(whom, charp, 0644);
++MODULE_PARM_DESC(whom, "Recipient of the hello message");
++
++static unsigned long time;
++
++static int __init hello_init(void)
++{
++	pr_alert("Hello %s. You are currently using Linux %s.\n", whom, init_uts_ns.name.release);
++	time = get_seconds();
++
++	return 0;
++}
++
++static void __exit hello_exit(void)
++{
++	pr_alert("Loaded for %lu seconds.\n", get_seconds() - time);
++}
++
++module_init(hello_init);
++module_exit(hello_exit);
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Greeting module");
++MODULE_AUTHOR("Darian");
+-- 
+2.25.1
+
