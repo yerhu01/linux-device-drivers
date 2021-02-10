@@ -15,7 +15,7 @@ static int __init hello_init(void)
 {
 	pr_alert("Hello %s. You are currently using Linux %s.\n", whom, init_uts_ns.name.release);
 	time = get_seconds();
-	
+
 	return 0;
 }
 
