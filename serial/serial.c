@@ -2,6 +2,7 @@
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -16,6 +17,7 @@ struct serial_dev {
 	struct miscdevice miscdev;
 	void __iomem *regs;
 	u32 count;
+	int irq;
 };
 
 static u32 reg_read(struct serial_dev *dev, u32 offset)
@@ -91,6 +93,13 @@ static const struct file_operations serial_fops = {
 	.owner = THIS_MODULE,
 };
 
+static irqreturn_t serial_irq(int irq, void *data)
+{
+	pr_info("Called %s\n", __func__);
+
+	return IRQ_HANDLED;
+}
+
 static int serial_probe(struct platform_device *pdev)
 {
 	unsigned int baud_divisor, uartclk;
@@ -108,6 +117,8 @@ static int serial_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Cannot remap registers\n");
 		return -ENOMEM;
 	}
+
+	dev->irq = platform_get_irq(pdev, 0);
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
@@ -135,13 +146,23 @@ static int serial_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dev);
 
+	ret = devm_request_irq(&pdev->dev, dev->irq, serial_irq, 0, dev->miscdev.name, dev);
+	if (ret < 0)
+		goto err_pm;
+
+	reg_write(dev, UART_IER_RDI, UART_IER);
+
 	ret = misc_register(&dev->miscdev);
 	if (ret < 0) {
-		pm_runtime_disable(&pdev->dev);
-		return ret;
+		goto err_pm;
 	}
 
 	return 0;
+
+err_pm:
+	pm_runtime_disable(&pdev->dev);
+
+	return ret;
 }
 
 static int serial_remove(struct platform_device *pdev)
