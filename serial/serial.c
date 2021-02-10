@@ -61,6 +61,7 @@ static ssize_t serial_read(struct file *file, char __user *buf, size_t sz, loff_
 	spin_lock_irqsave(&dev->lock, flags);
 
 	ret = put_user(dev->serial_buf[dev->serial_buf_rd], buf);
+	dev_dbg(dev->miscdev.parent, "=> %c\n", dev->serial_buf[dev->serial_buf_rd]);
 	dev->serial_buf_rd++;
 
 	if (dev->serial_buf_rd >= SERIAL_BUFSIZE)
@@ -84,6 +85,9 @@ static ssize_t serial_write(struct file *file, const char __user *buf, size_t sz
 
 		if (get_user(c, buf + i))
 			return -EFAULT;
+
+		dev_dbg(dev->miscdev.parent, "=> %c\n", c);
+
 		serial_write_char(dev, c);
 		dev->count++;
 
