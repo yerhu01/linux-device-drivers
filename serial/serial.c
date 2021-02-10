@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0
+#include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/miscdevice.h>
 #include <linux/of.h>
 #include <uapi/linux/serial_reg.h>
 
 struct serial_dev {
+	struct miscdevice miscdev;
 	void __iomem *regs;
 };
 
@@ -29,18 +32,35 @@ static void serial_write_char(struct serial_dev *dev, char c)
 	reg_write(dev, c, UART_TX);
 }
 
+static ssize_t serial_read(struct file *file, char __user *buf, size_t sz, loff_t *pos)
+{
+	return -EINVAL;
+}
+
+static ssize_t serial_write(struct file *file, const char __user *buf, size_t sz, loff_t *pos)
+{
+	pr_err("serial_write\n");
+	return sz;
+}
+
+static const struct file_operations serial_fops = {
+	.read = serial_read,
+	.write = serial_write,
+	.owner = THIS_MODULE,
+};
+
 static int serial_probe(struct platform_device *pdev)
 {
 	unsigned int baud_divisor, uartclk;
 	struct serial_dev *dev;
 	struct resource *res;
+	int ret;
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(struct serial_dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	pr_err("start %x\n", res->start);
 	dev->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (!dev->regs) {
 		dev_err(&pdev->dev, "Cannot remap registers\n");
@@ -65,14 +85,29 @@ static int serial_probe(struct platform_device *pdev)
 
 	pr_info("Called %s\n", __func__);
 
-	serial_write_char(dev, 'A');
+	dev->miscdev.minor = MISC_DYNAMIC_MINOR;
+	dev->miscdev.name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "serial-%x", res->start);
+
+	dev->miscdev.fops = &serial_fops;
+	dev->miscdev.parent = &pdev->dev;
+
+	platform_set_drvdata(pdev, dev);
+
+	ret = misc_register(&dev->miscdev);
+	if (ret < 0) {
+		pm_runtime_disable(&pdev->dev);
+		return ret;
+	}
 
 	return 0;
 }
 
 static int serial_remove(struct platform_device *pdev)
 {
+	struct serial_dev *dev = platform_get_drvdata(pdev);
+
 	pm_runtime_disable(&pdev->dev);
+	misc_deregister(&dev->miscdev);
 	pr_info("Called %s\n", __func__);
         return 0;
 }
