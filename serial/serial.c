@@ -8,16 +8,23 @@
 #include <linux/pm_runtime.h>
 #include <linux/miscdevice.h>
 #include <linux/of.h>
+#include <linux/wait.h>
 #include <uapi/linux/serial_reg.h>
 
 #define SERIAL_RESET_COUNTER 0
 #define SERIAL_GET_COUNTER 1
+
+#define SERIAL_BUFSIZE 16
 
 struct serial_dev {
 	struct miscdevice miscdev;
 	void __iomem *regs;
 	u32 count;
 	int irq;
+	char serial_buf[SERIAL_BUFSIZE];
+	int serial_buf_rd;
+	int serial_buf_wr;
+	wait_queue_head_t wait;
 };
 
 static u32 reg_read(struct serial_dev *dev, u32 offset)
@@ -40,7 +47,23 @@ static void serial_write_char(struct serial_dev *dev, char c)
 
 static ssize_t serial_read(struct file *file, char __user *buf, size_t sz, loff_t *pos)
 {
-	return -EINVAL;
+	struct serial_dev *dev = container_of(file->private_data, struct serial_dev, miscdev);
+	int ret;
+
+	ret = wait_event_interruptible(dev->wait, dev->serial_buf_wr != dev->serial_buf_rd);
+	if (ret)
+		return ret;
+
+	ret = put_user(dev->serial_buf[dev->serial_buf_rd], buf);
+	dev->serial_buf_rd++;
+
+	if (dev->serial_buf_rd >= SERIAL_BUFSIZE)
+		dev->serial_buf_rd = 0;
+
+	if (ret)
+		return ret;
+
+	return 1;
 }
 
 static ssize_t serial_write(struct file *file, const char __user *buf, size_t sz, loff_t *pos)
@@ -97,7 +120,13 @@ static irqreturn_t serial_irq(int irq, void *data)
 {
 	struct serial_dev *dev = data;
 
-	pr_err("%c\n", reg_read(dev, UART_RX));
+	dev->serial_buf[dev->serial_buf_wr] = reg_read(dev, UART_RX);
+	dev->serial_buf_wr++;
+
+	if (dev->serial_buf_wr >= SERIAL_BUFSIZE)
+		dev->serial_buf_wr = 0;
+
+	wake_up(&dev->wait);
 
 	return IRQ_HANDLED;
 }
@@ -119,6 +148,8 @@ static int serial_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Cannot remap registers\n");
 		return -ENOMEM;
 	}
+
+	init_waitqueue_head(&dev->wait);
 
 	dev->irq = platform_get_irq(pdev, 0);
 
