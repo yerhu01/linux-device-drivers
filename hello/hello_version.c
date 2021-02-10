@@ -4,9 +4,13 @@
 #include <linux/kernel.h>
 #include <linux/utsname.h>
 
+static char *whom = "world";
+module_param(whom, charp, 0644);
+MODULE_PARM_DESC(whom, "Recipient of the hello message");
+
 static int __init hello_init(void)
 {
-	pr_alert("Hello Master. You are currently using Linux %s.\n", init_uts_ns.name.release);
+	pr_alert("Hello %s. You are currently using Linux %s.\n", whom, init_uts_ns.name.release);
 	return 0;
 }
 
