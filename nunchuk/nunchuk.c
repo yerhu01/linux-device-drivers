@@ -5,6 +5,10 @@
 #include <linux/i2c.h>
 #include <linux/input.h>
 
+struct nunchuk_dev {
+	struct i2c_client *i2c_client;
+};
+
 static int nunchuk_read_registers(struct i2c_client *client, u8 *recv)
 {
 	u8 buf[1];
@@ -24,6 +28,25 @@ static int nunchuk_read_registers(struct i2c_client *client, u8 *recv)
 	return i2c_master_recv(client, recv, 6);
 }
 
+static void nunchuk_poll(struct input_dev *input)
+{
+	struct nunchuk_dev *nunchuk = input_get_drvdata(input);
+	bool zpressed, cpressed;
+	u8 recv[6];
+	int ret;
+
+	ret = nunchuk_read_registers(nunchuk->i2c_client, recv);
+	if (ret < 0)
+		return;
+
+	zpressed = !(recv[5] & BIT(0));
+	cpressed = !(recv[5] & BIT(1));
+
+	input_event(input, EV_KEY, BTN_Z, zpressed);
+	input_event(input, EV_KEY, BTN_C, cpressed);
+	input_sync(input);
+}
+
 static int nunchuk_probe(struct i2c_client *client)
 {
 	u8 recv[6];
@@ -31,19 +54,7 @@ static int nunchuk_probe(struct i2c_client *client)
 	int ret;
 
 	struct input_dev *input;
-
-	input = devm_input_allocate_device(&client->dev);
-	if (!input)
-		return -ENOMEM;
-
-	input->name = "Wii Nunchuk";
-	input->id.bustype = BUS_I2C;
-
-	set_bit(EV_KEY, input->evbit);
-	set_bit(BTN_C, input->keybit);
-	set_bit(BTN_Z, input->keybit);
-
-	ret = input_register_device(input);
+	struct nunchuk_dev *nunchuk;
 
 	buf[0] = 0xf0;
 	buf[1] = 0x55;
@@ -55,7 +66,7 @@ static int nunchuk_probe(struct i2c_client *client)
 	}
 
 	udelay(1000);
-	
+
 	buf[0] = 0xfb;
 	buf[1] = 0x00;
 
@@ -69,14 +80,31 @@ static int nunchuk_probe(struct i2c_client *client)
 	if (ret < 0)
 		return ret;
 
-	ret = nunchuk_read_registers(client, recv);
-	if (ret < 0)
+	nunchuk = devm_kzalloc(&client->dev, sizeof(*nunchuk), GFP_KERNEL);
+	if (!nunchuk)
+		return -ENOMEM;
+
+	input = devm_input_allocate_device(&client->dev);
+	if (!input)
+		return -ENOMEM;
+
+	nunchuk->i2c_client = client;
+	input_set_drvdata(input, nunchuk);
+
+	input->name = "Wii Nunchuk";
+	input->id.bustype = BUS_I2C;
+
+	set_bit(EV_KEY, input->evbit);
+	set_bit(BTN_C, input->keybit);
+	set_bit(BTN_Z, input->keybit);
+
+	ret = input_setup_polling(input, nunchuk_poll);
+	if (ret)
 		return ret;
 
-	dev_info(&client->dev, "Z state %s\n", (recv[5] & BIT(0)) ? "released" : "pressed");
-	dev_info(&client->dev, "C state %s\n", (recv[5] & BIT(1)) ? "released" : "pressed");
+	input_set_poll_interval(input, 50);
 
-	return 0;
+	return input_register_device(input);
 }
 
 static int nunchuk_remove(struct i2c_client *client)
