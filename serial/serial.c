@@ -9,7 +9,9 @@
 #include <linux/miscdevice.h>
 #include <linux/of.h>
 #include <linux/wait.h>
+#include <linux/debugfs.h>
 #include <linux/spinlock.h>
+
 #include <uapi/linux/serial_reg.h>
 
 #define SERIAL_RESET_COUNTER 0
@@ -26,6 +28,7 @@ struct serial_dev {
 	int serial_buf_rd;
 	int serial_buf_wr;
 	wait_queue_head_t wait;
+	struct dentry *dir;
 
 	spinlock_t lock; /* locking the read buffer */
 };
@@ -195,6 +198,9 @@ static int serial_probe(struct platform_device *pdev)
 	dev->miscdev.fops = &serial_fops;
 	dev->miscdev.parent = &pdev->dev;
 
+	dev->dir = debugfs_create_dir(dev->miscdev.name, NULL);
+	debugfs_create_u32("counter", 0644, dev->dir, &dev->count);
+
 	platform_set_drvdata(pdev, dev);
 
 	ret = devm_request_irq(&pdev->dev, dev->irq, serial_irq, 0, dev->miscdev.name, dev);
@@ -221,6 +227,7 @@ static int serial_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(&pdev->dev);
 	misc_deregister(&dev->miscdev);
+	debugfs_remove_recursive(dev->dir);
 	pr_info("Called %s\n", __func__);
         return 0;
 }
