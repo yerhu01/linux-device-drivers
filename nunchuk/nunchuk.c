@@ -3,6 +3,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/i2c.h>
+#include <linux/input.h>
 
 static int nunchuk_read_registers(struct i2c_client *client, u8 *recv)
 {
@@ -29,8 +30,17 @@ static int nunchuk_probe(struct i2c_client *client)
 	u8 buf[2];
 	int ret;
 
+	struct input_dev *input;
+
+	input = devm_input_allocate_device(&client->dev);
+	if (!input)
+		return -ENOMEM;
+
+	ret = input_register_device(input);
+
 	buf[0] = 0xf0;
 	buf[1] = 0x55;
+
 	ret = i2c_master_send(client, buf, sizeof(buf));
 	if (ret != sizeof(buf)) {
 		dev_err(&client->dev, "i2c_master_send failed (%d)\n", ret);
@@ -38,9 +48,10 @@ static int nunchuk_probe(struct i2c_client *client)
 	}
 
 	udelay(1000);
-
+	
 	buf[0] = 0xfb;
 	buf[1] = 0x00;
+
 	ret = i2c_master_send(client, buf, sizeof(buf));
 	if (ret != sizeof(buf)) {
 		dev_err(&client->dev, "i2c_master_send failed (%d)\n", ret);
