@@ -32,6 +32,7 @@ static void nunchuk_poll(struct input_dev *input)
 {
 	struct nunchuk_dev *nunchuk = input_get_drvdata(input);
 	bool zpressed, cpressed;
+	u8 xaxis, yaxis;
 	u8 recv[6];
 	int ret;
 
@@ -41,9 +42,13 @@ static void nunchuk_poll(struct input_dev *input)
 
 	zpressed = !(recv[5] & BIT(0));
 	cpressed = !(recv[5] & BIT(1));
+	xaxis = recv[0];
+	yaxis = recv[1];
 
 	input_event(input, EV_KEY, BTN_Z, zpressed);
 	input_event(input, EV_KEY, BTN_C, cpressed);
+	input_event(input, EV_ABS, ABS_X, xaxis);
+	input_event(input, EV_ABS, ABS_Y, yaxis);
 	input_sync(input);
 }
 
@@ -97,6 +102,22 @@ static int nunchuk_probe(struct i2c_client *client)
 	set_bit(EV_KEY, input->evbit);
 	set_bit(BTN_C, input->keybit);
 	set_bit(BTN_Z, input->keybit);
+	set_bit(ABS_X, input->absbit);
+	set_bit(ABS_Y, input->absbit);
+	input_set_abs_params(input, ABS_X, 30, 220, 4, 8);
+	input_set_abs_params(input, ABS_Y, 40, 200, 4, 8);
+	/* Classic buttons */
+	set_bit(BTN_TL, input->keybit);
+	set_bit(BTN_SELECT, input->keybit);
+	set_bit(BTN_MODE, input->keybit);
+	set_bit(BTN_START, input->keybit);
+	set_bit(BTN_TR, input->keybit);
+	set_bit(BTN_TL2, input->keybit);
+	set_bit(BTN_B, input->keybit);
+	set_bit(BTN_Y, input->keybit);
+	set_bit(BTN_A, input->keybit);
+	set_bit(BTN_X, input->keybit);
+	set_bit(BTN_TR2, input->keybit);
 
 	ret = input_setup_polling(input, nunchuk_poll);
 	if (ret)
