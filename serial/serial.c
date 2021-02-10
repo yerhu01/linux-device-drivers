@@ -9,9 +9,13 @@
 #include <linux/of.h>
 #include <uapi/linux/serial_reg.h>
 
+#define SERIAL_RESET_COUNTER 0
+#define SERIAL_GET_COUNTER 1
+
 struct serial_dev {
 	struct miscdevice miscdev;
 	void __iomem *regs;
+	u32 count;
 };
 
 static u32 reg_read(struct serial_dev *dev, u32 offset)
@@ -48,6 +52,7 @@ static ssize_t serial_write(struct file *file, const char __user *buf, size_t sz
 		if (get_user(c, buf + i))
 			return -EFAULT;
 		serial_write_char(dev, c);
+		dev->count++;
 
 		if (c == '\n')
 			serial_write_char(dev, '\r');
@@ -56,9 +61,33 @@ static ssize_t serial_write(struct file *file, const char __user *buf, size_t sz
 	return sz;
 }
 
+static long serial_ioctl(struct file *file, unsigned int cmd, unsigned long val)
+{
+	struct serial_dev *dev = container_of(file->private_data, struct serial_dev, miscdev);
+	unsigned int __user *valp = (unsigned int __user *)val;
+
+	switch(cmd) {
+		case SERIAL_RESET_COUNTER:
+			dev->count = 0;
+			break;
+
+		case SERIAL_GET_COUNTER:
+			if(put_user(dev->count, valp))
+				return -EFAULT;
+
+			break;
+
+		default:
+			return -ENOTTY;
+	}
+
+	return 0;
+}
+
 static const struct file_operations serial_fops = {
 	.read = serial_read,
 	.write = serial_write,
+	.unlocked_ioctl = serial_ioctl,
 	.owner = THIS_MODULE,
 };
 
