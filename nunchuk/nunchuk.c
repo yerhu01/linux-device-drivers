@@ -4,9 +4,28 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 
+static int nunchuk_read_registers(struct i2c_client *client, u8 *recv)
+{
+	u8 buf[1];
+	int ret;
+
+	usleep_range(10000, 20000);
+
+	buf[0] = 0x00;
+	ret = i2c_master_send(client, buf, sizeof(buf));
+	if (ret != sizeof(buf)) {
+		dev_err(&client->dev, "i2c_master_send failed (%d)\n", ret);
+		return ret;
+	}
+
+	usleep_range(10000, 20000);
+
+	return i2c_master_recv(client, recv, 6);
+}
 
 static int nunchuk_probe(struct i2c_client *client)
 {
+	u8 recv[6];
 	u8 buf[2];
 	int ret;
 
@@ -28,7 +47,16 @@ static int nunchuk_probe(struct i2c_client *client)
 		return ret;
 	}
 
-	dev_err(&client->dev, "%s called\n", __func__);
+	ret = nunchuk_read_registers(client, recv);
+	if (ret < 0)
+		return ret;
+
+	ret = nunchuk_read_registers(client, recv);
+	if (ret < 0)
+		return ret;
+
+	dev_info(&client->dev, "Z state %s\n", (recv[5] & BIT(0)) ? "released" : "pressed");
+	dev_info(&client->dev, "C state %s\n", (recv[5] & BIT(1)) ? "released" : "pressed");
 
 	return 0;
 }
