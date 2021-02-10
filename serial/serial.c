@@ -39,7 +39,20 @@ static ssize_t serial_read(struct file *file, char __user *buf, size_t sz, loff_
 
 static ssize_t serial_write(struct file *file, const char __user *buf, size_t sz, loff_t *pos)
 {
-	pr_err("serial_write\n");
+	struct serial_dev *dev = container_of(file->private_data, struct serial_dev, miscdev);
+	int i;
+
+	for (i = 0; i < sz; i++) {
+		unsigned char c;
+
+		if (get_user(c, buf + i))
+			return -EFAULT;
+		serial_write_char(dev, c);
+
+		if (c == '\n')
+			serial_write_char(dev, '\r');
+	}
+
 	return sz;
 }
 
