@@ -95,7 +95,9 @@ static const struct file_operations serial_fops = {
 
 static irqreturn_t serial_irq(int irq, void *data)
 {
-	pr_info("Called %s\n", __func__);
+	struct serial_dev *dev = data;
+
+	pr_err("%c\n", reg_read(dev, UART_RX));
 
 	return IRQ_HANDLED;
 }
@@ -153,9 +155,8 @@ static int serial_probe(struct platform_device *pdev)
 	reg_write(dev, UART_IER_RDI, UART_IER);
 
 	ret = misc_register(&dev->miscdev);
-	if (ret < 0) {
+	if (ret < 0) 
 		goto err_pm;
-	}
 
 	return 0;
 
