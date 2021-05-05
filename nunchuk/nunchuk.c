@@ -45,6 +45,7 @@ static void nunchuk_poll(struct input_dev *input)
 	xaxis = recv[0];
 	yaxis = recv[1];
 
+        /* Post events and notify the input core */
 	input_event(input, EV_KEY, BTN_Z, zpressed);
 	input_event(input, EV_KEY, BTN_C, cpressed);
 	input_event(input, EV_ABS, ABS_X, xaxis);
@@ -61,9 +62,9 @@ static int nunchuk_probe(struct i2c_client *client)
 	struct input_dev *input;
 	struct nunchuk_dev *nunchuk;
 
+        /* Initializing handshake */
 	buf[0] = 0xf0;
 	buf[1] = 0x55;
-
 	ret = i2c_master_send(client, buf, sizeof(buf));
 	if (ret != sizeof(buf)) {
 		dev_err(&client->dev, "i2c_master_send failed (%d)\n", ret);
@@ -74,17 +75,18 @@ static int nunchuk_probe(struct i2c_client *client)
 
 	buf[0] = 0xfb;
 	buf[1] = 0x00;
-
 	ret = i2c_master_send(client, buf, sizeof(buf));
 	if (ret != sizeof(buf)) {
 		dev_err(&client->dev, "i2c_master_send failed (%d)\n", ret);
 		return ret;
 	}
 
+        /* Read registers once to update state of internal registers */
 	ret = nunchuk_read_registers(client, recv);
 	if (ret < 0)
 		return ret;
 
+        /* Register an input interface */
 	nunchuk = devm_kzalloc(&client->dev, sizeof(*nunchuk), GFP_KERNEL);
 	if (!nunchuk)
 		return -ENOMEM;
