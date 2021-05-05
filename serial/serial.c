@@ -45,6 +45,7 @@ static void reg_write(struct serial_dev *dev, int value, u32 offset)
 
 static void serial_write_char(struct serial_dev *dev, char c)
 {
+        /* Wait until UART_LSR_THRE bit gets set in UART_LSR register */
 	while ((reg_read(dev, UART_LSR) & UART_LSR_THRE) == 0)
 		cpu_relax();
 
@@ -57,6 +58,7 @@ static ssize_t serial_read(struct file *file, char __user *buf, size_t sz, loff_
 	unsigned long flags;
 	int ret;
 
+        /* Wait until something in buffer */
 	ret = wait_event_interruptible(dev->wait, dev->serial_buf_wr != dev->serial_buf_rd);
 	if (ret)
 		return ret;
@@ -83,6 +85,7 @@ static ssize_t serial_write(struct file *file, const char __user *buf, size_t sz
 	struct serial_dev *dev = container_of(file->private_data, struct serial_dev, miscdev);
 	int i;
 
+        /* Copy each character from user space data to serial port */
 	for (i = 0; i < sz; i++) {
 		unsigned char c;
 
@@ -137,6 +140,7 @@ static irqreturn_t serial_irq(int irq, void *data)
 
 	spin_lock(&dev->lock);
 
+        /* Read/store from UART_RX register to circular buffer */
 	dev->serial_buf[dev->serial_buf_wr] = reg_read(dev, UART_RX);
 	dev->serial_buf_wr++;
 
@@ -145,6 +149,7 @@ static irqreturn_t serial_irq(int irq, void *data)
 
 	spin_unlock(&dev->lock);
 
+        /* Wake up all processes waiting on the wait queue */
 	wake_up(&dev->wait);
 
 	return IRQ_HANDLED;
@@ -161,6 +166,7 @@ static int serial_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
+        /* Get base virtual address for device registers */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dev->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (!dev->regs) {
@@ -174,9 +180,11 @@ static int serial_probe(struct platform_device *pdev)
 
 	dev->irq = platform_get_irq(pdev, 0);
 
+        /* Power management initialization */
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 
+        /* Configure baud rate to 115200 */
 	of_property_read_u32(pdev->dev.of_node, "clock-frequency", &uartclk);
 	baud_divisor = uartclk / 16 / 115200;
 	reg_write(dev, 0x07, UART_OMAP_MDR1);
@@ -192,25 +200,30 @@ static int serial_probe(struct platform_device *pdev)
 
 	pr_info("Called %s\n", __func__);
 
+        /* Initialize a misc interface */
 	dev->miscdev.minor = MISC_DYNAMIC_MINOR;
 	dev->miscdev.name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "serial-%x", res->start);
-
 	dev->miscdev.fops = &serial_fops;
 	dev->miscdev.parent = &pdev->dev;
 
+        /* Add a serial directory to debugfs with file for counter */
 	dev->dir = debugfs_create_dir(dev->miscdev.name, NULL);
 	debugfs_create_u32("counter", 0644, dev->dir, &dev->count);
 
+        /* Attach private serial_dev structure to pdev to access in other parts of driver */
 	platform_set_drvdata(pdev, dev);
 
+        /* Register interrupt and interrupt handler in kernel */
 	ret = devm_request_irq(&pdev->dev, dev->irq, serial_irq, 0, dev->miscdev.name, dev);
 	if (ret < 0)
 		goto err_pm;
 
+        /* Enable interrupts */
 	reg_write(dev, UART_IER_RDI, UART_IER);
 
+        /* Register misc interface */
 	ret = misc_register(&dev->miscdev);
-	if (ret < 0) 
+	if (ret < 0)
 		goto err_pm;
 
 	return 0;
