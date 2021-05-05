@@ -125,7 +125,7 @@ The Wii Nunchuk outputs six bytes of data as follows:
 | Byte 0x03 | Y-axis data of the accellerometer (bit 2 to 9 for 10-bit resolution) |
 | Byte 0x04 | Z-axis data of the accellerometer (bit 2 to 9 for 10-bit resolution) |
 | Byte 0x05 | bit 0 = Z button status - 0 = pressed and 1 = released               |
-|	    | bit 1 as C button status - 0 = pressed and 1 = released              |
+|	        | bit 1 as C button status - 0 = pressed and 1 = released              |
 |           | bit 2 and 3 as lower 2 bits of X-axis data of the accellerometer     |
 |           | bit 4 and 5 as lower 2 bits of Y-axis data of the accellerometer     |
 |           | bit 6 and 7 as lower 2 bits of Z-axis data of the accellerometer     |
@@ -166,10 +166,10 @@ A `platform_driver` structure is initialized and the serial driver is registered
 To access device registers, the routines `reg_read` and `reg_write` are created to access offset registers from the base virtual address using `readl()` and `writel`. Note that all UART register offsets have standardized values and must be multiplied by 4 for OMAP SoCs.
 
 In the probe routine, a `serial_dev` private structure is initialized with base virtual addresses for the device registers. To enable UART devices, power management is initialized, the line and baud rate is configured and a software reset is requested. This serial driver is also given a misc interface which has:
-    * `serial_write()` write file operation stub which calls `serial_write_char` to write character from userspace data to `UART_TX` register
-    * `serial_read()` read file operation stub to put contents of circular buffer (from `UART_RX` register) to userspace and puts the process to sleep when no data is available
-    * `serial_ioctl()` maintain count of characters written through serial port and implements two `unlocked_ioctl` operations (`SERIAL_RESET_COUNTER` and `SERIAL_GET_COUNTER`)
-    * `file_operations` structure declaring these operations and sets `.owner` field to `THIS_MODULE` to tell kernel this module is in charge of this device and for module reference counting
+        * `serial_write()` write file operation stub which calls `serial_write_char` to write character from userspace data to `UART_TX` register
+        * `serial_read()` read file operation stub to put contents of circular buffer (from `UART_RX` register) to userspace and puts the process to sleep when no data is available
+        * `serial_ioctl()` maintain count of characters written through serial port and implements two `unlocked_ioctl` operations (`SERIAL_RESET_COUNTER` and `SERIAL_GET_COUNTER`)
+        * `file_operations` structure declaring these operations and sets `.owner` field to `THIS_MODULE` to tell kernel this module is in charge of this device and for module reference counting
 
 The probe routine also enables interrupts for the UART device and registers an interrupt handler `serial_irq` which acknowledges the interrupts. `serial_irq` simply reads contents of the `UART_RX` register and stores them inside the circular buffer. It then wakes up all processes waiting on the wait queue to put contents in the buffer to user space.
 
