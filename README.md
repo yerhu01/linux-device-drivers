@@ -30,9 +30,9 @@ The purpose of this project is to illustrate the development of Linux device dri
 ## Board Setup
 ### Set up serial communication with the board
 1. Connect board to PC with USB to Serial adapter
-    * GND wire (blue) to pin 1
-    * TX wire (red) to pin 4 (board RX)
-    * RX wire (green) to pin 5 (board TX)
+    - GND wire (blue) to pin 1
+    - TX wire (red) to pin 4 (board RX)
+    - RX wire (green) to pin 5 (board TX)
 1. Communicate with board through serial port
     ```
     picocom -b 115200 /dev/ttyUSB0
@@ -141,10 +141,6 @@ Thus, Z and C buttons states and joystick X and Y coordinates are retrieved from
     insmod ./nunchuk.ko
     rmmod nunchuk
     ```
-1. See driver in /sys
-    ```
-    ls /sys/module/nunchuk/drivers
-    ```
 1. Testing the input interface
     ```
     evtest
@@ -165,11 +161,11 @@ A `platform_driver` structure is initialized and the serial driver is registered
 
 To access device registers, the routines `reg_read` and `reg_write` are created to access offset registers from the base virtual address using `readl()` and `writel`. Note that all UART register offsets have standardized values and must be multiplied by 4 for OMAP SoCs.
 
-In the probe routine, a `serial_dev` private structure is initialized with base virtual addresses for the device registers. To enable UART devices, power management is initialized, the line and baud rate is configured and a software reset is requested. This serial driver is also given a misc interface which has:
-        * `serial_write()` write file operation stub which calls `serial_write_char` to write character from userspace data to `UART_TX` register
-        * `serial_read()` read file operation stub to put contents of circular buffer (from `UART_RX` register) to userspace and puts the process to sleep when no data is available
-        * `serial_ioctl()` maintain count of characters written through serial port and implements two `unlocked_ioctl` operations (`SERIAL_RESET_COUNTER` and `SERIAL_GET_COUNTER`)
-        * `file_operations` structure declaring these operations and sets `.owner` field to `THIS_MODULE` to tell kernel this module is in charge of this device and for module reference counting
+In the probe routine, a `serial_dev` private structure is initialized with base virtual addresses for the device registers. To enable UART devices, power management is initialized, the line and baud rate is configured and a software reset is requested. This serial driver is also given a misc interface which has:  
+- `serial_write()` write file operation stub which calls `serial_write_char` to write character from userspace data to `UART_TX` register
+- `serial_read()` read file operation stub to put contents of circular buffer (from `UART_RX` register) to userspace and puts the process to sleep when no data is available
+- `serial_ioctl()` maintain count of characters written through serial port and implements two `unlocked_ioctl` operations (`SERIAL_RESET_COUNTER` and `SERIAL_GET_COUNTER`)
+- `file_operations` structure declaring these operations and sets `.owner` field to `THIS_MODULE` to tell kernel this module is in charge of this device and for module reference counting
 
 The probe routine also enables interrupts for the UART device and registers an interrupt handler `serial_irq` which acknowledges the interrupts. `serial_irq` simply reads contents of the `UART_RX` register and stores them inside the circular buffer. It then wakes up all processes waiting on the wait queue to put contents in the buffer to user space.
 
@@ -181,7 +177,7 @@ Additionally, kernel debugging mechanisms are used in the `serial_write()` to sh
     ```
     make
     ```
-1. Start serial communication
+1. Starting another serial communication
    ```
     picocom -b 115200/dev/ttyUSB1
    ```
@@ -192,13 +188,11 @@ Additionally, kernel debugging mechanisms are used in the `serial_write()` to sh
     lsmod
     echo sometext > /dev/serial-48024000
     ```
-    * Output in picocom
 1. Testing read()
-    * Run on target
+    * Run on target and type in picocom
     ```
     cat /dev/serial-48024000
     ```
-    * Type in picocom and outputs on target
 1. Testing ioctl
     * `serial-get-counter.c` and `serial-reset-counter.c` programs are provided and take as argument the path to the device file corresponding to the UART device and can be compiled with:
     ```
