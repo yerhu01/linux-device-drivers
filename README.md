@@ -101,7 +101,7 @@ A patch was also created to add the new files to the mainline kernel.
 This module implements a driver for an I2C device which offers the functionality of an I2C Nunchuk.
 
 ## Custom Device Tree
-To let the Linux kernel handle the new device on the **BeagleBone Black**, the description of this device was added into the board device tree which can be found in the corresponding [patch file] (nunchuk/0001-Add-i2c1-and-nunchuk-nodes-in-dts.patch).
+To let the Linux kernel handle the new device on the **BeagleBone Black**, the description of this device was added into the board device tree which can be found in the corresponding [patch file](nunchuk/0001-Add-i2c1-and-nunchuk-nodes-in-dts.patch).
 
 In particular, the second I2C bus (i2c1) is enabled and configured with the Nunchuk device declared as a child node at address 52 and communication frequency of 100KHz (coming from the Wii Nunchuk specification).
 
@@ -150,7 +150,7 @@ Thus, Z and C buttons states and joystick X and Y coordinates are retrieved from
 This module implements a character driver allowing to write data to additional CPU serial ports and to read data from them.
 
 ## Custom Device Tree
-To let the Linux kernel handle the new device on the **BeagleBone Black**, the description of this device was added into the board device tree which can be found in the corresponding [patch file] (serial/0001-Add-uart-nodes-in-dts.patch).
+To let the Linux kernel handle the new device on the **BeagleBone Black**, the description of this device was added into the board device tree which can be found in the corresponding [patch file](serial/0001-Add-uart-nodes-in-dts.patch).
 
 A pin muxing section is created with declarations for UART2 and UART4. The pin muxing of the SoC was configured for MODE1 for pins B17 and A17 (`SPI0_SCLK` and `SPI0_D0`) of AM335X SoC for UART2 and MODE6 for pins T17 and U17 (`GPMC_WAIT0` and `GPMC_WPN`) of AM335X SoC for UART4 according to the **BeagleBone Black System Reference Manual** and **AM335X Processor Manual**.
 
